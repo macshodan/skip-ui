@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import android.webkit.MimeTypeMap
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Size
 import coil3.fetch.Fetcher
@@ -26,8 +27,11 @@ public struct AsyncImage : View {
     let url: URL?
     let scale: CGFloat
     let content: (AsyncImagePhase) -> any View
+    
+    // Add a noCache Parameter to disable Android Coil Chacing
+    let cachingEnabled: Bool
 
-    public init(url: URL?, scale: CGFloat = 1.0) {
+    public init(url: URL?, scale: CGFloat = 1.0, useCache: Bool = true) {
         self.url = url
         self.scale = scale
         self.content = { phase in
@@ -40,9 +44,11 @@ public struct AsyncImage : View {
                 return image
             }
         }
+        
+        self.cachingEnabled = useCache
     }
 
-    public init(url: URL?, scale: CGFloat = 1.0, @ViewBuilder content: @escaping (Image) -> any View, @ViewBuilder placeholder: @escaping () -> any View) {
+    public init(url: URL?, scale: CGFloat = 1.0, useCache: Bool = true, @ViewBuilder content: @escaping (Image) -> any View, @ViewBuilder placeholder: @escaping () -> any View) {
         self.url = url
         self.scale = scale
         self.content = { phase in
@@ -55,17 +61,19 @@ public struct AsyncImage : View {
                 return content(image)
             }
         }
+        self.cachingEnabled = useCache
     }
 
-    public init(url: URL?, scale: CGFloat = 1.0, transaction: Any? = nil /* Transaction = Transaction() */, @ViewBuilder content: @escaping (AsyncImagePhase) -> any View) {
+    public init(url: URL?, scale: CGFloat = 1.0, useCache: Bool = true, transaction: Any? = nil /* Transaction = Transaction() */, @ViewBuilder content: @escaping (AsyncImagePhase) -> any View) {
         self.url = url
         self.scale = scale
         self.content = content
+        self.cachingEnabled = useCache
     }
 
     // Note that we reverse the `url` and `scale` parameter order just to create a unique JVM signature
     // SKIP @bridge
-    public init(scale: CGFloat, url: URL?, bridgedContent: ((Image?, (any Error)?) -> any View)?) {
+    public init(scale: CGFloat, url: URL?, useCache: Bool = true, bridgedContent: ((Image?, (any Error)?) -> any View)?) {
         self.url = url
         self.scale = scale
         self.content = { phase in
@@ -90,6 +98,7 @@ public struct AsyncImage : View {
                 }
             }
         }
+        self.cachingEnabled = useCache
     }
 
     #if SKIP
@@ -115,6 +124,8 @@ public struct AsyncImage : View {
             .size(Size.ORIGINAL)
             .memoryCacheKey(urlString)
             .diskCacheKey(urlString)
+            .diskCachePolicy(cachingEnabled ? CachePolicy.ENABLED : CachePolicy.DISABLED)
+            .memoryCachePolicy(cachingEnabled ? CachePolicy.ENABLED : CachePolicy.DISABLED)
             .build()
         SubcomposeAsyncImage(model: model, contentDescription: nil, loading: { _ in
             content(AsyncImagePhase.empty).Compose(context: context)
